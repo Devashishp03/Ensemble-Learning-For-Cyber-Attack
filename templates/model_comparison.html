@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Model Performance Comparison</h2>
+    
+    <div class="row">
+        {% for metric, plot in plots.items() %}
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <img src="data:image/png;base64,{{ plot }}" class="img-fluid">
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h4>Detailed Metrics</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>Accuracy</th>
+                            <th>Precision</th>
+                            <th>Recall</th>
+                            <th>F1 Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for name, metrics in model_accuracies.items() %}
+                        <tr>
+                            <td>{{ name }}</td>
+                            <td>{{ "%.2f"|format(metrics['accuracy']) }}%</td>
+                            <td>{{ "%.2f"|format(metrics['precision']) }}%</td>
+                            <td>{{ "%.2f"|format(metrics['recall']) }}%</td>
+                            <td>{{ "%.2f"|format(metrics['f1']) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

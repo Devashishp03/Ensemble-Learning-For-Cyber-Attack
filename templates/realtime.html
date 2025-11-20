@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-globe me-2"></i>Real-Time Network Monitoring</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Monitoring Controls -->
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Monitoring Controls</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="interfaceSelect" class="form-label">Network Interface</label>
+                                        <select id="interfaceSelect" class="form-select">
+                                            <option>Loading...</option>
+                                        </select>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <button id="startMonitoringBtn" class="btn btn-success btn-lg">
+                                            <i class="fas fa-play-circle me-2"></i>Start Monitoring
+                                        </button>
+                                        <button id="stopMonitoringBtn" class="btn btn-danger btn-lg" disabled>
+                                            <i class="fas fa-stop-circle me-2"></i>Stop Monitoring
+                                        </button>
+                                    </div>
+                                    <div class="alert alert-info mt-3" id="monitoringStatus">
+                                        <i class="fas fa-info-circle me-2"></i>Monitoring is currently inactive
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Detection Statistics -->
+                            <div class="card mt-3">
+                                <div class="card-header">
+                                    <h5>Detection Statistics</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Total Packets Analyzed:</span>
+                                        <strong id="totalPackets">0</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Threats Detected:</span>
+                                        <strong id="threatCount">0</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Last Detection:</span>
+                                        <strong id="lastDetection">Never</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Detection Results -->
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5>Live Detection Results</h5>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="autoScrollSwitch" checked>
+                                        <label class="form-check-label" for="autoScrollSwitch">Auto-scroll</label>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div id="detectionResults" style="height: 500px; overflow-y: auto;">
+                                        <div class="alert alert-secondary m-3">
+                                            <i class="fas fa-info-circle me-2"></i>No detection results yet. Start monitoring to see live traffic analysis.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Threat Distribution -->
+                            <div class="card mt-3">
+                                <div class="card-header">
+                                    <h5>Threat Distribution</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div id="threatChart" style="height: 250px;">
+                                                <p class="text-muted text-center mt-5">Chart will appear when threats are detected</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm" id="threatTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Threat Type</th>
+                                                            <th>Count</th>
+                                                            <th>Last Seen</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- Will be dynamically populated -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detection Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalBodyContent">
+                Loading details...
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const startBtn = $('#startMonitoringBtn');
+    const stopBtn = $('#stopMonitoringBtn');
+    const interfaceSelect = $('#interfaceSelect');
+    const statusDiv = $('#monitoringStatus');
+    const resultsDiv = $('#detectionResults');
+    const totalPackets = $('#totalPackets');
+    const threatCount = $('#threatCount');
+    const lastDetection = $('#lastDetection');
+    const autoScrollSwitch = $('#autoScrollSwitch');
+    let detectionInterval;
+
+    let threatStats = {};
+    let attackTypes = {};
+
+    // Load interfaces
+    $.ajax({
+        url: '/api/get_interfaces',
+        type: 'GET',
+        success: function(data) {
+            interfaceSelect.empty();
+            data.interfaces.forEach(iface => {
+                interfaceSelect.append(`<option value="${iface}">${iface}</option>`);
+            });
+        }
+    });
+
+    // Load attack types
+    $.ajax({
+        url: '/api/get_attack_types',
+        type: 'GET',
+        success: function(data) {
+            attackTypes = data.attack_types;
+            const threatTable = $('#threatTable tbody');
+            threatTable.empty();
+
+            Object.values(attackTypes).forEach(attackType => {
+                threatStats[attackType] = { count: 0, lastSeen: "Never" };
+                threatTable.append(`
+                    <tr data-type="${attackType}">
+                        <td>${attackType}</td>
+                        <td>0</td>
+                        <td>Never</td>
+                    </tr>
+                `);
+            });
+        }
+    });
+
+    function resetUI() {
+        startBtn.prop('disabled', false).html('<i class="fas fa-play-circle me-2"></i>Start Monitoring');
+        stopBtn.prop('disabled', true).html('<i class="fas fa-stop-circle me-2"></i>Stop Monitoring');
+        statusDiv.removeClass('alert-success alert-danger').addClass('alert-info')
+            .html('<i class="fas fa-info-circle me-2"></i>Monitoring is currently inactive');
+        clearInterval(detectionInterval);
+    }
+
+    startBtn.click(function() {
+        const interface = interfaceSelect.val();
+        startBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Starting...');
+
+        $.ajax({
+            url: '/start_realtime',
+            type: 'POST',
+            data: {
+                interface: interface,
+                csrf_token: "{{ csrf_token() }}"
+            },
+            success: function(data) {
+                if (data.status === 'started') {
+                    startBtn.prop('disabled', true);
+                    stopBtn.prop('disabled', false);
+                    statusDiv.removeClass('alert-info alert-danger').addClass('alert-success')
+                        .html('<i class="fas fa-circle-notch fa-spin me-2"></i>Monitoring active on ' + interface);
+
+                    resultsDiv.html('<div class="alert alert-secondary m-3">Starting live monitoring...</div>');
+                    clearInterval(detectionInterval);
+                    detectionInterval = setInterval(fetchDetectionResults, 1000);
+                    totalPackets.text('0');
+                    threatCount.text('0');
+                    lastDetection.text('Just started');
+
+                    Object.keys(threatStats).forEach(attackType => {
+                        threatStats[attackType] = { count: 0, lastSeen: "Never" };
+                    });
+
+                    $('#threatTable tbody tr').each(function() {
+                        $(this).find('td:eq(1)').text('0');
+                        $(this).find('td:eq(2)').text('Never');
+                    });
+                }
+            },
+            error: function(xhr) {
+                console.error('Start monitoring error:', xhr.responseJSON);
+                statusDiv.removeClass('alert-success').addClass('alert-danger')
+                    .html('<i class="fas fa-exclamation-circle me-2"></i>Error starting monitoring');
+                resetUI();
+            }
+        });
+    });
+
+    stopBtn.click(function() {
+        stopBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Stopping...');
+
+        $.ajax({
+            url: '/stop_realtime',
+            type: 'POST',
+            data: { csrf_token: "{{ csrf_token() }}" },
+            success: function(data) {
+                if (data.status === 'stopped') {
+                    resetUI();
+                }
+            },
+            error: function(xhr) {
+                console.error('Stop monitoring error:', xhr.responseJSON);
+                statusDiv.removeClass('alert-success').addClass('alert-danger')
+                    .html('<i class="fas fa-exclamation-circle me-2"></i>Error stopping monitoring');
+                stopBtn.prop('disabled', false).html('<i class="fas fa-stop-circle me-2"></i>Stop Monitoring');
+            }
+        });
+    });
+
+    function fetchDetectionResults() {
+        $.ajax({
+            url: '/get_realtime_detections',
+            success: function(data) {
+                if (data.detections && data.detections.length > 0) {
+                    updateDetectionResults(data.detections);
+                    updateThreatStats(data.detections);
+                }
+
+                if (data.is_capturing) {
+                    statusDiv.html('<i class="fas fa-circle-notch fa-spin me-2"></i>Monitoring active - ' +
+                        data.total_packets + ' packets analyzed');
+                    totalPackets.text(data.total_packets);
+                    threatCount.text(data.threats_detected);
+                }
+            },
+            error: function(xhr) {
+                console.error('Error fetching detection results:', xhr.responseJSON);
+            }
+        });
+    }
+
+    function updateDetectionResults(detections) {
+        if (resultsDiv.find('.alert-secondary').length) {
+            resultsDiv.empty();
+        }
+
+        detections.slice(-20).forEach(detection => {
+            const isThreat = detection.attack_type !== 'Normal';
+            const alertClass = isThreat ? 'alert-danger' : 'alert-success';
+            const icon = isThreat ? 'exclamation-triangle' : 'check-circle';
+
+            const detectionElement = $(`
+                <div class="alert ${alertClass} m-2 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-${icon} me-2"></i>
+                            <strong>${detection.attack_type}</strong>
+                            <span class="ms-2">(${detection.confidence.toFixed(2)}% confidence)</span>
+                        </div>
+                        <small>${detection.timestamp}</small>
+                    </div>
+                </div>
+            `);
+
+            resultsDiv.prepend(detectionElement);
+        });
+
+        if (autoScrollSwitch.is(':checked')) {
+            resultsDiv.scrollTop(0);
+        }
+    }
+
+    function updateThreatStats(detections) {
+        let threatCounter = 0;
+
+        detections.forEach(detection => {
+            if (detection.attack_type !== 'Normal') {
+                threatCounter++;
+                threatStats[detection.attack_type].count++;
+                threatStats[detection.attack_type].lastSeen = detection.timestamp;
+            }
+        });
+
+        if (threatCounter > 0) {
+            lastDetection.text(detections[0].timestamp);
+        }
+
+        Object.keys(threatStats).forEach(attackType => {
+            const row = $(`#threatTable tr[data-type="${attackType}"]`);
+            row.find('td:eq(1)').text(threatStats[attackType].count);
+            row.find('td:eq(2)').text(threatStats[attackType].lastSeen);
+        });
+    }
+
+    $(window).on('beforeunload', function() {
+        clearInterval(detectionInterval);
+        if (startBtn.is(':disabled')) {
+            $.ajax({
+                url: '/stop_realtime',
+                type: 'POST',
+                data: { csrf_token: "{{ csrf_token() }}" },
+                async: false
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

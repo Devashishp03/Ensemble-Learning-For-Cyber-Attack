@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Manual Attack Detection</h2>
+    <p>Enter network traffic features manually to detect potential attacks</p>
+    
+    <form id="manualDetectionForm">
+        {% for feature in SELECTED_FEATURES %}
+        <div class="form-group">
+            <label for="{{ feature }}">{{ feature }}</label>
+            <input type="number" step="any" class="form-control" id="{{ feature }}" 
+                   placeholder="Enter {{ feature }}" required>
+        </div>
+        {% endfor %}
+        
+        <button type="submit" class="btn btn-primary">Detect Attack</button>
+    </form>
+    
+    <div id="resultContainer" class="mt-4" style="display:none;">
+        <h3>Detection Result</h3>
+        <div class="card">
+            <div class="card-body">
+                <p><strong>Attack Type:</strong> <span id="attackType"></span></p>
+                <p><strong>Confidence:</strong> <span id="confidence"></span>%</p>
+                <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#manualDetectionForm').submit(function(e) {
+        e.preventDefault();
+
+        // Collect form data
+        const selectedFeatures = JSON.parse('{{ SELECTED_FEATURES | tojson | safe }}');
+        let formData = {};
+
+        selectedFeatures.forEach(feature => {
+            formData[feature] = document.getElementById(feature).value;
+        });
+
+        console.log(formData);
+
+        // Get CSRF token from meta tag
+        const csrf_token = $('meta[name="csrf-token"]').attr('content');
+
+        $.ajax({
+            url: '/detect_from_input',
+            type: 'POST',
+            data: formData,
+            headers: {
+                'X-CSRFToken': csrf_token  // Pass the CSRF token in the header
+            },
+            success: function(response) {
+                $('#attackType').text(response.attack_type);
+                $('#confidence').text(response.confidence);
+                $('#timestamp').text(response.timestamp);
+                $('#resultContainer').show();
+
+                if(response.attack_type !== 'Normal') {
+                    // Show warning for attacks
+                    $('#resultContainer .card').removeClass('bg-light')
+                        .addClass('bg-danger text-white');
+                } else {
+                    // Normal traffic
+                    $('#resultContainer .card').removeClass('bg-danger text-white')
+                        .addClass('bg-success text-white');
+                }
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Unknown error'));
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

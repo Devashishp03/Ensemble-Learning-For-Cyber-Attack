@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Model Training</h2>
+
+    <div class="row">
+        {% for model, metrics in model_accuracies.items() %}
+        <div class="col-md-6 mb-4">
+
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ model }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-white">
+                        <p><strong>Accuracy:</strong> {{ "%.2f"|format(metrics.accuracy) }}%</p>
+                        <p><strong>Precision:</strong> {{ "%.2f"|format(metrics.precision) }}%</p>
+                        <p><strong>Recall:</strong> {{ "%.2f"|format(metrics.recall) }}%</p>
+                        <p><strong>F1 Score:</strong> {{ "%.2f"|format(metrics.f1) }}%</p>
+
+                        <form class="train-form" data-model="{{ model }}" method="post">
+                            <button type="submit" class="btn btn-primary">Retrain {{ model }}</button>
+                        </form>
+                        <div id="{{ model }}-status" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+$(document).ready(function () {
+    $('.train-form').submit(function (e) {
+        e.preventDefault();
+
+        const form = $(this)[0];
+        const model = $(this).data('model');
+        const statusDiv = $('#' + model + '-status');
+
+        // Get CSRF token from meta tag
+        const csrf_token = $('meta[name="csrf-token"]').attr('content');
+
+        statusDiv.html('<div class="spinner-border text-primary" role="status"></div> Training in progress...');
+
+        $.ajax({
+            url: '/train_model/' + model,
+            type: 'POST',
+            data: {},  // No file, just an empty POST
+            headers: {
+                'X-CSRFToken': csrf_token
+            },
+            success: function (response) {
+                if (response.success) {
+                    statusDiv.html(`
+                        <div class="alert alert-success">
+                            Training complete!<br>
+                            New Accuracy: ${response.metrics.accuracy.toFixed(2)}%<br>
+                            <small>${response.message}</small>
+                        </div>
+                    `);
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    statusDiv.html(`
+                        <div class="alert alert-danger">
+                            Training failed: ${response.error}
+                        </div>
+                    `);
+                }
+            },
+            error: function (xhr) {
+                const errorMessage = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Unknown error';
+                statusDiv.html(`
+                    <div class="alert alert-danger">
+                        Error: ${errorMessage}
+                    </div>
+                `);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

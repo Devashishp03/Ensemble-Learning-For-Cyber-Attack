@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 200px);">
+    
+    <div class="col-md-6 col-lg-4">
+        <div class="card cyber-login-card">
+            <div class="card-header text-center position-relative">
+                <h4 class="mb-0">SECURE ACCESS</h4>
+                <div class="cyber-line-short mx-auto mt-3"></div>
+                <div class="login-icon">
+                    <i class="fas fa-fingerprint"></i>
+                </div>
+            </div>
+            <div class="card-body">
+                <form action="/login" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                    <div class="mb-4">
+                        <label for="username" class="form-label">USERNAME</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent border-end-0">
+                                <i class="fas fa-user text-cyber-blue"></i>
+                            </span>
+                            <input type="text" class="form-control ps-2 border-start-0" id="username" name="username" required placeholder="Enter your access ID">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label">PASSWORD</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent border-end-0">
+                                <i class="fas fa-lock text-cyber-blue"></i>
+                            </span>
+                            <input type="password" class="form-control ps-2 border-start-0" id="password" name="password" required placeholder="Enter your secure key">
+                            <span class="input-group-text bg-transparent border-start-0">
+                                <i class="fas fa-eye-slash toggle-password" style="cursor: pointer;"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 cyber-login-btn">
+                        <span class="login-btn-text">LOGIN</span>
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </button>
+                </form>
+                <div class="text-center mt-4">
+                    <p class="text-muted">UNREGISTERED USER? <a href="/register" class="text-cyber-blue text-decoration-none">REGISTER</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cyber-login-card {
+        border: 1px solid rgba(0, 240, 255, 0.3);
+        box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), 
+                    inset 0 0 20px rgba(0, 240, 255, 0.1);
+        transform-style: preserve-3d;
+        perspective: 1000px;
+    }
+    
+    .cyber-login-card .card-header {
+        padding: 30px 20px 50px;
+        background: linear-gradient(90deg, rgba(0, 240, 255, 0.1), rgba(123, 45, 255, 0.1));
+        border-bottom: 1px solid rgba(0, 240, 255, 0.3);
+    }
+    
+    .cyber-login-card h4 {
+        font-size: 1.2rem;
+        letter-spacing: 3px;
+        color: var(--cyber-blue);
+        text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    }
+    
+    .cyber-line-short {
+        width: 60px;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--cyber-blue), transparent);
+        position: relative;
+    }
+    
+    .cyber-line-short::before, .cyber-line-short::after {
+        content: '';
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background: var(--cyber-blue);
+        top: -3px;
+        border-radius: 50%;
+        box-shadow: var(--glow);
+    }
+    
+    .cyber-line-short::before {
+        left: 0;
+    }
+    
+    .cyber-line-short::after {
+        right: 0;
+    }
+    
+    .login-icon {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 60px;
+        height: 60px;
+        background: var(--primary-dark);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--cyber-blue);
+        box-shadow: var(--glow);
+    }
+    
+    .login-icon i {
+        font-size: 1.8rem;
+        color: var(--cyber-blue);
+    }
+    
+    .cyber-login-card .card-body {
+        padding: 40px 30px 30px;
+        background: rgba(5, 8, 15, 0.7);
+    }
+    
+    .form-label {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.7);
+        margin-bottom: 8px;
+    }
+    
+    .input-group-text {
+        color: var(--cyber-blue) !important;
+        background: rgba(0, 240, 255, 0.05) !important;
+        border: 1px solid rgba(0, 240, 255, 0.3) !important;
+    }
+    
+    .cyber-login-btn {
+        padding: 12px;
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: 1px;
+        font-weight: 500;
+        background: linear-gradient(135deg, var(--cyber-blue), var(--cyber-purple));
+        border: none;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .cyber-login-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(0, 240, 255, 0.4);
+    }
+    
+    .cyber-login-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: 0.5s;
+    }
+    
+    .cyber-login-btn:hover::before {
+        left: 100%;
+    }
+    
+    .login-btn-text {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .text-cyber-blue {
+        color: var(--cyber-blue);
+        transition: all 0.3s ease;
+    }
+    
+    a.text-cyber-blue:hover {
+        color: white;
+        text-shadow: 0 0 10px rgba(0, 240, 255, 0.7);
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle password visibility
+        const togglePassword = document.querySelector('.toggle-password');
+        const password = document.querySelector('#password');
+        
+        togglePassword.addEventListener('click', function() {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+        
+        // Add animation to form inputs on focus
+        const inputs = document.querySelectorAll('.form-control');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.querySelector('.input-group-text').style.boxShadow = '0 0 10px rgba(0, 240, 255, 0.5)';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.querySelector('.input-group-text').style.boxShadow = 'none';
+            });
+        });
+    });
+</script>
+{% endblock %}

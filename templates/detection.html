@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4><i class="fas fa-shield-alt me-2"></i>Cyber Attack Attack Detection</h4>
+                    <a href="/realtime" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-globe me-1"></i>Switch to Real-Time
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        This tool allows you to manually test network samples against our detection models.
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <button id="detectBtn" class="btn btn-primary btn-lg">
+                            <i class="fas fa-search me-2"></i>Analyze Sample
+                        </button>
+                    </div>
+
+                    <div id="resultContainer" style="display: none;">
+                        <div class="card mb-3" id="resultCard">
+                            <div class="card-body text-center">
+                                <p id="sampleIndex" class="mb-2"></p>
+                                <h4 id="attackType" class="card-title"></h4>
+                                <p id="actualType" class="card-text"></p>
+                                <p id="correct" class="card-text"></p>
+                                <p class="text-muted" id="timestamp"></p>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Sample Parameters</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped" id="sampleDataTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Parameter</th>
+                                                        <th>Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="sampleDataBody">
+                                                    <!-- Will be populated by JavaScript -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h5>Model Decision Details</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped" id="featuresTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Feature</th>
+                                                <th>Value</th>
+                                                <th>Importance</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for feature in SELECTED_FEATURES %}
+                                            <tr>
+                                                <td>{{ feature }}</td>
+                                                <td id="{{ feature|lower|replace(' ', '_') }}">-</td>
+                                                <td>
+                                                    <div class="progress" style="height: 20px;">
+                                                        <div class="progress-bar" id="{{ feature|lower|replace(' ', '_') }}_imp" 
+                                                             role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}{% block scripts %}
+<script>$(document).ready(function () {
+    // Constants and configuration
+    const DEFAULT_FEATURE_IMPORTANCE = 50;
+    const AUTO_SCAN_INTERVAL = 300000; // 5 minutes
+    
+    // Initialize from template data
+    const features = JSON.parse('{{ SELECTED_FEATURES|tojson|safe }}');
+    const featureImportance = JSON.parse('{{ FEATURE_IMPORTANCES|tojson|safe if FEATURE_IMPORTANCES else "{}" }}');
+    
+    // DOM elements
+    const $detectBtn = $('#detectBtn');
+    const $resultContainer = $('#resultContainer');
+    const $resultCard = $('#resultCard');
+    const $attackType = $('#attackType');
+    const $confidence = $('#confidence');
+    const $actualType = $('#actualType');
+    const $correct = $('#correct');
+    const $timestamp = $('#timestamp');
+    const $sampleDataBody = $('#sampleDataBody');
+    const $distPlot = $('#distPlot');
+    const $sampleIndex = $('#sampleIndex');
+
+    // Click handler for detection
+    $detectBtn.click(function () {
+        $detectBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Analyzing...');
+        $resultContainer.hide(); // Hide previous results
+
+        $.ajax({
+            url: '/detect_manual',
+            type: 'POST',
+            data: { csrf_token: "{{ csrf_token() }}" },
+            timeout: 30000,
+            success: function (response) {
+                if (!response?.sample_data) {
+                    throw new Error('Invalid response format');
+                }
+
+                displayResults(response);
+            },
+            error: handleDetectionError
+        });
+    });
+
+    function displayResults(response) {
+        $resultContainer.show();
+        
+        const attackType = response.attack_type || 'Normal';
+        const isNormal = attackType === "Normal";
+        
+        // Update result card
+        $resultCard
+            .removeClass(isNormal ? 'bg-danger' : 'bg-success')
+            .addClass(isNormal ? 'bg-success' : 'bg-danger')
+            .addClass('text-white');
+        
+        $attackType.html(
+            `<i class="fas ${isNormal ? 'fa-check-circle' : 'fa-exclamation-triangle'} me-2"></i>` +
+            (isNormal ? 'No Attack Detected' : `${attackType} Detected`)
+        );
+
+        // Update result details
+        $sampleIndex.html(`<strong>Sample Index:</strong> ${response.sample_index || 'N/A'}`);
+        $confidence.html(`<strong>Confidence:</strong> ${response.confidence?.toFixed(2) || '0'}%`);
+        $actualType.html(`<strong>Actual Type:</strong> ${response.actual_type || 'Unknown'}`);
+        $correct.html(`<strong>Correct:</strong> ${response.correct ? '✅' : '❌'}`);
+        $timestamp.text(`Analyzed at: ${response.timestamp || new Date().toLocaleString()}`);
+
+        // Update sample data
+        updateSampleData(response.sample_data, response.sample_index);
+        
+        // Update feature importance visualization
+        updateFeatureImportances(features, featureImportance, response.sample_data, isNormal);
+       
+        
+        $detectBtn.prop('disabled', false)
+            .html('<i class="fas fa-search me-2"></i>Analyze Another Sample');
+    }
+
+    function updateSampleData(sampleData) {
+        // Create table rows for all parameters
+    let rows = [];
+    
+    // Add sample index first if available
+    if (sampleIndex !== undefined) {
+        rows.push(`<tr><td><strong>Sample Index</strong></td><td>${sampleIndex}</td></tr>`);
+    }
+    
+    // Add all other parameters
+    for (const [key, value] of Object.entries(sampleData)) {
+        // Skip actual_label if you don't want to display it
+        if (key === 'actual_label') continue;
+        
+        // Format the parameter name for better display
+        const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        rows.push(`<tr><td><strong>${formattedKey}</strong></td><td>${value}</td></tr>`);
+    }
+        $sampleDataBody.html(rows.join(''));
+    }
+
+    function updateFeatureImportances(features, importances, sampleData, isNormal) {
+        features.forEach(feature => {
+            const elementId = feature.toLowerCase().replace(/ /g, '_');
+            const $feature = $(`#${elementId}`);
+            const $impBar = $(`#${elementId}_imp`);
+            const value = sampleData[feature] || '-';
+            const importance = importances[feature] ?? DEFAULT_FEATURE_IMPORTANCE;
+            
+            if ($feature.length && $impBar.length) {
+                $feature.text(value);
+                $impBar
+                    .css('width', `${importance}%`)
+                    .text(`${importance}%`)
+                    .toggleClass('bg-success', isNormal)
+                    .toggleClass('bg-danger', !isNormal);
+            }
+        });
+    }
+
+    function updateDistributionPlot(plotData) {
+        $distPlot.attr('alt', plotData ? 'Attack Distribution' : 'No plot data available');
+        if (plotData) {
+            $distPlot.attr('src', `data:image/png;base64,${plotData}`);
+        }
+    }
+
+    function handleDetectionError(xhr) {
+        console.error('Detection error:', xhr.responseJSON || xhr.statusText);
+        alert(`Error during detection: ${xhr.responseJSON?.error || 'Unknown error'}`);
+        $detectBtn.prop('disabled', false)
+            .html('<i class="fas fa-search me-2"></i>Analyze Sample');
+    }
+
+    // Auto-scan functionality
+    const autoScanInterval = setInterval(() => {
+        if ($detectBtn.is(':enabled') && $('#autoScanToggle').is(':checked')) {
+            $detectBtn.click();
+        }
+    }, AUTO_SCAN_INTERVAL);
+
+    // Cleanup
+    $(window).on('beforeunload', () => clearInterval(autoScanInterval));
+});
+</script>
+{% endblock %}

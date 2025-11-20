@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-bg text-center">
+    <div class="container">
+        <h1>Welcome, {{ username }}!</h1>
+        <p class="lead">Cyber Attack Detection Dashboard</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <a href="/detection" class="btn btn-primary w-100 mb-3">
+                        <i class="fas fa-shield-alt me-2"></i>Attack Detection
+                    </a>
+                    <a href="/realtime" class="btn btn-outline-primary w-100 mb-3">
+                        <i class="fas fa-globe me-2"></i>Real-Time Monitoring
+                    </a>
+                    <a href="/manual_detection" class="btn btn-outline-primary w-100 mb-3">
+                        <i class="fas fa-globe me-2"></i>Manual Attack Detection
+                    </a>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header" style="color: white;">
+                    <h5>System Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2" style="color: white;">
+                        <span>Models Trained:</span>
+                        <strong>{{ model_accuracies|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2" style="color: white;">
+                        <span>Last Scan:</span>
+                        <strong id="lastScanTime">{{ "Never" if not attack_history else attack_history[-1].timestamp }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between" style="color: white;">
+                        <span>Threats Detected:</span>
+                        <strong id="totalThreats">{{ attack_history|length }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+              
+<div class="card-header d-flex justify-content-between align-items-center">
+    <h5>Model Performance</h5>
+    <div>
+        <a href="/model_training" class="btn btn-sm btn-primary me-2">
+            <i class="fas fa-cogs me-1"></i>Train Models
+        </a>
+        <button class="btn btn-sm btn-outline-secondary" id="refreshModels">
+            <i class="fas fa-sync-alt me-1"></i>Refresh
+        </button>
+    </div>
+</div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>Accuracy</th>
+                                    <th>Precision</th>
+                                    <th>Recall</th>
+                                    <th>F1 Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model, metrics in model_accuracies.items() %}
+                                <tr>
+                                    <td>{{ model }}</td>
+                                    <td>{{ "%.2f"|format(metrics['accuracy']) }}%</td>
+                                    <td>{{ "%.2f"|format(metrics['precision']) }}%</td>
+                                    <td>{{ "%.2f"|format(metrics['recall']) }}%</td>
+                                    <td>{{ "%.2f"|format(metrics['f1']) }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+           
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Activity</h5>
+                </div>
+                <div class="card-body" style="max-height: 200px; overflow-y: auto;">
+                    {% if attack_history %}
+                        {% for attack in attack_history %}
+                        <div class="alert alert-{{ 'danger' if attack.attack_type != 'Normal' else 'success' }}">
+                            <strong>{{ attack.attack_type }}</strong>
+                            <small>{{ attack.timestamp }}</small>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <strong>System Ready</strong> - No recent activity detected.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header" style="color: white;">
+                    <h5>System Overview</h5>
+                </div>
+                <div class="card-body" style="color: white;">
+                    <p>This system uses ensemble machine learning techniques to detect various types of cyber attacks.</p>
+                    <p>Key features:</p>
+                    <ul>
+                        <li>Real-time network traffic analysis</li>
+                        <li>Manual sample scanning</li>
+                        <li>Multiple detection models</li>
+                        <li>Email alerts for detected threats</li>
+                    </ul>
+                    <div class="text-center mt-3" style="color: white;">
+                        <a href="/detection" class="btn btn-primary me-2">
+                            <i class="fas fa-shield-alt me-1"></i>Try Manual Detection
+                        </a>
+                        <a href="/realtime" class="btn btn-outline-primary">
+                            <i class="fas fa-play me-1"></i>Start Live Monitoring
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Training Results Modal -->
+<div class="modal fade" id="trainingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Training Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="trainingModalBody">
+                <!-- Content will be inserted by JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="location.reload()">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Refresh models data
+    $('#refreshModels').click(function() {
+        $(this).html('<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...');
+        $.ajax({
+            url: '/train_models',
+            method: 'POST',
+            data: { csrf_token: "{{ csrf_token() }}" },
+            success: function() {
+                location.reload();
+            },
+            error: function() {
+                $('#refreshModels').html('<i class="fas fa-sync-alt me-1"></i>Refresh');
+                alert('Error refreshing models');
+            }
+        });
+    });
+    
+    // Update last scan time every minute
+    setInterval(function() {
+        $.get('/get_last_scan', function(data) {
+            if (data.timestamp) {
+                $('#lastScanTime').text(data.timestamp);
+                $('#totalThreats').text(data.total_threats);
+            }
+        });
+    }, 60000);
+
+    // Training buttons functionality
+    $('#trainSVM').click(function() { trainModel('SVM'); });
+    $('#trainRF').click(function() { trainModel('RandomForest'); });
+    $('#trainNB').click(function() { trainModel('NaiveBayes'); });
+    $('#trainEnsemble').click(function() { trainModel('Ensemble'); });
+
+    function trainModel(modelName) {
+        const $btn = $(`#train${modelName.replace(' ', '')}`);
+        $btn.prop('disabled', true).html(`<i class="fas fa-spinner fa-spin me-2"></i>Training ${modelName}...`);
+        
+        $.ajax({
+            url: `/train_model/${modelName}`,
+            type: 'POST',
+            data: { csrf_token: "{{ csrf_token() }}" },
+            success: function(response) {
+                if (response.success) {
+                    showTrainingResults(response.model, response.metrics);
+                } else {
+                    alert(`Training failed: ${response.message}`);
+                }
+            },
+            error: function(xhr) {
+                alert(`Error: ${xhr.responseJSON?.error || 'Unknown error'}`);
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(
+                    modelName === 'Ensemble' 
+                    ? `<i class="fas fa-users me-2"></i>Train Ensemble`
+                    : `<i class="fas fa-robot me-2"></i>Train ${modelName}`
+                );
+            }
+        });
+    }
+
+    function showTrainingResults(modelName, metrics) {
+        const resultsHtml = `
+        <div class="alert alert-success">
+            <h5><i class="fas fa-check-circle me-2"></i>${modelName} Training Complete</h5>
+            <hr>
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Accuracy:</strong> ${metrics.accuracy.toFixed(2)}%
+                </div>
+                <div class="col-md-3">
+                    <strong>Precision:</strong> ${metrics.precision.toFixed(2)}%
+                </div>
+                <div class="col-md-3">
+                    <strong>Recall:</strong> ${metrics.recall.toFixed(2)}%
+                </div>
+                <div class="col-md-3">
+                    <strong>F1 Score:</strong> ${metrics.f1.toFixed(2)}%
+                </div>
+            </div>
+            <div class="mt-2">
+                <button class="btn btn-sm btn-info" onclick="location.reload()">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh Dashboard
+                </button>
+            </div>
+        </div>
+        `;
+        
+        $('#trainingResults').html(resultsHtml);
+        $('#trainingModalBody').html(resultsHtml);
+        $('#trainingModal').modal('show');
+    }
+});
+</script>
+{% endblock %}

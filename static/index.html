@@ -1,0 +1,64 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-Time Traffic Monitor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #traffic-data { border: 1px solid #ddd; padding: 10px; height: 300px; overflow-y: scroll; }
+        .packet { margin-bottom: 10px; padding: 8px; border-bottom: 1px solid #eee; }
+        .warning { background-color: #fff3cd; }
+        .danger { background-color: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Network Traffic Monitor</h1>
+    <button id="scanBtn">Scan Now</button>
+    <div id="traffic-data"></div>
+
+    <script>
+        const trafficDiv = document.getElementById('traffic-data');
+        const scanBtn = document.getElementById('scanBtn');
+        
+        // Connect to WebSocket
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        
+        ws.onmessage = (event) => {
+            const packet = JSON.parse(event.data);
+            displayPacket(packet);
+            checkForAnomalies(packet);
+        };
+        
+        scanBtn.onclick = () => {
+            fetch('/scan-now')
+                .then(res => res.json())
+                .then(packet => {
+                    displayPacket(packet);
+                    checkForAnomalies(packet);
+                });
+        };
+        
+        function displayPacket(packet) {
+            const packetDiv = document.createElement('div');
+            packetDiv.className = 'packet';
+            packetDiv.innerHTML = `
+                <strong>${new Date(packet.timestamp * 1000).toISOString()}</strong><br>
+                ${packet.src_ip} → ${packet.dst_ip} (${packet.protocol})<br>
+                Length: ${packet.length} bytes | Flags: ${packet.flags}
+            `;
+            trafficDiv.prepend(packetDiv);
+        }
+        
+        function checkForAnomalies(packet) {
+            // Simple anomaly detection - customize this
+            const packetDiv = trafficDiv.firstChild;
+            if (packet.length > 1400) {
+                packetDiv.classList.add('warning');
+            }
+            if (packet.protocol === 'ICMP' && packet.length > 1000) {
+                packetDiv.classList.add('danger');
+            }
+        }
+    </script>
+</body>
+</html>
